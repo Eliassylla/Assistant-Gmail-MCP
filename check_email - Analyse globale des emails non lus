@@ -1,0 +1,212 @@
+const checkEmail = async () => {
+  try {
+    // Recherche des emails non lus récents
+    const result = await search_emails({
+      query: "is:unread newer_than:1d",
+      maxResults: 20
+    });
+    
+    if (!result.messages || result.messages.length === 0) {
+      return "📭 Aucun email non lu récent trouvé.";
+    }
+    
+    // Récupération des détails pour chaque email
+    const emailDetails = [];
+    for (const email of result.messages) {
+      const details = await read_email({ messageId: email.id });
+      emailDetails.push(details);
+    }
+    
+    // Catégorisation selon le guide des labels
+    const categorized = categorizeEmails(emailDetails);
+    
+    // Création d'un résumé structuré
+    return generateSummary(categorized);
+  } catch (error) {
+    return `❌ Erreur lors de l'analyse des emails : ${error.message}`;
+  }
+};
+
+// Fonction de catégorisation basée sur le guide de labels
+const categorizeEmails = (emails) => {
+  const categories = {
+    "PRIORITAIRES": [],
+    "MARKETING": {
+      "AI_NEWSLETTERS": [],
+      "SOCIAL_MEDIA": [],
+      "SOCIAL_CONTENT": [],
+      "PROMOTIONS": []
+    },
+    "FORMATION": {
+      "TUTORIELS": [],
+      "RESSOURCES": [],
+      "WEBINAIRES": []
+    },
+    "TECH & OUTILS": {
+      "CONFIGURATIONS": [],
+      "SÉCURITÉ": [],
+      "SERVICES_CLOUD": []
+    },
+    "PROFESSIONNEL": {
+      "CLIENTS": [],
+      "FACTURATION": [],
+      "NETWORKING": [],
+      "PROJETS": []
+    },
+    "ABONNEMENT": {
+      "PAYANT": [],
+      "FREEMIUM": []
+    },
+    "PERSONNEL": {
+      "FINANCES": [],
+      "ADMINISTRATIF": [],
+      "COMMANDES": []
+    },
+    "AUTRES": []
+  };
+
+  // Critères pour les emails prioritaires
+  const priorityKeywords = ["urgent", "important", "immédiat", "deadline", "aujourd'hui", "rappel"];
+  const prioritySenders = ["boss", "client", "direction"];
+
+  // Dictionnaires de mots-clés pour chaque catégorie du guide
+  const keywordDictionary = {
+    "MARKETING/AI_NEWSLETTERS": ["newsletter", "IA", "AI", "intelligence artificielle", "GPT", "LLM", "Claude", "Anthropic", "OpenAI", "Gemini", "Mistral", "prompt engineering", "large language model", "chatbot", "NLP", "traitement naturel du langage", "transformer", "deep learning"],
+    "MARKETING/SOCIAL_MEDIA": ["réseaux sociaux", "social media", "LinkedIn", "Twitter", "Facebook", "Instagram", "TikTok", "engagement", "algorithme", "audience", "reach", "portée", "community management", "SMO", "SMM", "followers", "abonnés", "publication", "post", "hashtag"],
+    // Ajout de toutes les autres catégories du guide...
+  };
+
+  // Dictionnaires d'expéditeurs typiques
+  const senderDictionary = {
+    "MARKETING/AI_NEWSLETTERS": ["OpenAI", "Anthropic", "Google AI", "AI Weirdness", "The Batch", "Import AI", "The Algorithm"],
+    "MARKETING/SOCIAL_MEDIA": ["LinkedIn", "Twitter", "Meta", "Hootsuite", "Buffer", "Later", "Social Media Examiner"],
+    // Ajout de tous les autres expéditeurs typiques...
+  };
+
+  // Logique de catégorisation
+  for (const email of emails) {
+    let categoryFound = false;
+    
+    // Vérification des emails prioritaires
+    const isUrgent = priorityKeywords.some(keyword => 
+      email.subject.toLowerCase().includes(keyword.toLowerCase()) || 
+      email.snippet.toLowerCase().includes(keyword.toLowerCase())
+    );
+    
+    const isFromPrioritySender = prioritySenders.some(sender => 
+      email.from.toLowerCase().includes(sender.toLowerCase())
+    );
+    
+    if (isUrgent || isFromPrioritySender) {
+      categories["PRIORITAIRES"].push(email);
+      categoryFound = true;
+      continue;
+    }
+    
+    // Parcours de toutes les catégories de keywords
+    for (const [category, keywords] of Object.entries(keywordDictionary)) {
+      const [mainCategory, subCategory] = category.split('/');
+      
+      const hasKeyword = keywords.some(keyword => 
+        email.subject.toLowerCase().includes(keyword.toLowerCase()) || 
+        email.snippet.toLowerCase().includes(keyword.toLowerCase())
+      );
+      
+      if (hasKeyword) {
+        categories[mainCategory][subCategory].push(email);
+        categoryFound = true;
+        break;
+      }
+    }
+    
+    // Vérification des expéditeurs typiques si aucun mot-clé n'a été trouvé
+    if (!categoryFound) {
+      for (const [category, senders] of Object.entries(senderDictionary)) {
+        const [mainCategory, subCategory] = category.split('/');
+        
+        const isFromTypicalSender = senders.some(sender => 
+          email.from.toLowerCase().includes(sender.toLowerCase())
+        );
+        
+        if (isFromTypicalSender) {
+          categories[mainCategory][subCategory].push(email);
+          categoryFound = true;
+          break;
+        }
+      }
+    }
+    
+    // Si aucune catégorie n'a été trouvée
+    if (!categoryFound) {
+      categories["AUTRES"].push(email);
+    }
+  }
+  
+  return categories;
+};
+
+// Fonction pour générer un résumé structuré
+const generateSummary = (categorizedEmails) => {
+  let summary = "📊 **RÉSUMÉ DE VOTRE BOÎTE DE RÉCEPTION**\n\n";
+  
+  // Traitement des emails prioritaires
+  if (categorizedEmails["PRIORITAIRES"].length > 0) {
+    summary += "⚠️ **EMAILS PRIORITAIRES** ⚠️\n";
+    categorizedEmails["PRIORITAIRES"].forEach(email => {
+      summary += `- De: ${email.from}\n  Objet: ${email.subject}\n  Aperçu: ${email.snippet.substring(0, 100)}...\n\n`;
+    });
+  }
+  
+  // Traitement des autres catégories
+  Object.entries(categorizedEmails).forEach(([category, content]) => {
+    if (category === "PRIORITAIRES" || category === "AUTRES") return;
+    
+    let categoryCount = 0;
+    Object.values(content).forEach(emails => {
+      categoryCount += emails.length;
+    });
+    
+    if (categoryCount > 0) {
+      summary += `📁 **${category}** (${categoryCount})\n`;
+      
+      Object.entries(content).forEach(([subCategory, emails]) => {
+        if (emails.length > 0) {
+          summary += `  📌 ${subCategory} (${emails.length})\n`;
+          emails.slice(0, 3).forEach(email => {
+            summary += `  - ${email.from}: ${email.subject}\n`;
+          });
+          if (emails.length > 3) {
+            summary += `  - ...et ${emails.length - 3} autres\n`;
+          }
+          summary += "\n";
+        }
+      });
+    }
+  });
+  
+  // Traitement des emails non catégorisés
+  if (categorizedEmails["AUTRES"].length > 0) {
+    summary += `📄 **AUTRES EMAILS** (${categorizedEmails["AUTRES"].length})\n`;
+    categorizedEmails["AUTRES"].slice(0, 5).forEach(email => {
+      summary += `- De: ${email.from}\n  Objet: ${email.subject}\n`;
+    });
+    if (categorizedEmails["AUTRES"].length > 5) {
+      summary += `- ...et ${categorizedEmails["AUTRES"].length - 5} autres\n`;
+    }
+  }
+  
+  // Ajout de statistiques globales
+  const totalEmails = Object.entries(categorizedEmails).reduce((total, [category, content]) => {
+    if (category === "PRIORITAIRES" || category === "AUTRES") {
+      return total + content.length;
+    } else {
+      return total + Object.values(content).reduce((sum, emails) => sum + emails.length, 0);
+    }
+  }, 0);
+  
+  summary += `\n📈 **STATISTIQUES**\n`;
+  summary += `- Total d'emails non lus récents: ${totalEmails}\n`;
+  summary += `- Emails prioritaires: ${categorizedEmails["PRIORITAIRES"].length}\n`;
+  
+  return summary;
+};
