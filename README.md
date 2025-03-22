@@ -13,32 +13,38 @@ Le module `check_email.js` propose les fonctionnalités suivantes :
   - `emailArchive` : Archive un email spécifique.
   - `emailArchiveAll` : Archive tous les emails non lus récents.
   - `emailArchiveCategory` : Archive tous les emails d'une catégorie spécifique.
+- **Processeur de commandes** (`processEmailCommand`) : Point d'entrée unique pour traiter toutes les commandes sans confirmation supplémentaire.
 
 ## 🛠️ Utilisation
 
 Le module s'intègre à l'Assistant Gmail MCP et utilise les fonctions d'API Gmail pour interagir avec votre boîte de réception.
 
-### Commandes disponibles
+### Nouvelle méthode simplifiée
+
+La nouvelle fonction `processEmailCommand` sert de point d'entrée pour toutes les commandes :
 
 ```javascript
-// Vérifier les emails non lus récents
-checkEmail();
+// Syntaxe générale
+processEmailCommand(command, args);
 
-// Catégoriser les emails récents
-emailCategorize();
-
-// Identifier les emails nécessitant une action
-emailAction();
-
-// Archiver un email spécifique (par ID)
-emailArchive("ID_DE_L_EMAIL");
-
-// Archiver tous les emails non lus récents
-emailArchiveAll();
-
-// Archiver tous les emails d'une catégorie spécifique
-emailArchiveCategory("NEWSLETTERS");
+// Exemples d'utilisation
+processEmailCommand('check_email');
+processEmailCommand('email_archive', '18428abce778dd23');
+processEmailCommand('email_archive_category', 'NEWSLETTERS');
 ```
+
+Cette approche permet l'exécution directe des commandes sans demander de confirmation supplémentaire, simplifiant ainsi l'interaction avec l'assistant.
+
+### Commandes disponibles
+
+Les commandes suivantes sont prises en charge par le processeur de commandes :
+
+- `check_email` : Vérifier les emails non lus récents
+- `email_categorize` : Catégoriser les emails récents
+- `email_action` : Identifier les emails nécessitant une action
+- `email_archive [ID]` : Archiver un email spécifique
+- `email_archive_all` : Archiver tous les emails non lus récents
+- `email_archive_category [CATEGORIE]` : Archiver tous les emails d'une catégorie spécifique
 
 ## 📊 Catégories disponibles
 
@@ -67,6 +73,7 @@ Le module exporte ses fonctions pour être facilement utilisé par d'autres comp
 
 ```javascript
 module.exports = {
+  processEmailCommand, // Fonction principale pour traiter les commandes
   checkEmail,
   emailCategorize,
   emailAction,
@@ -106,7 +113,7 @@ L'assistant traite vos emails avec un souci constant de confidentialité :
 - Le traitement s'effectue localement via l'API Gmail
 - Seules les métadonnées des emails sont utilisées pour la catégorisation rapide
 
-## 🛠️ Développement
+## 🔧 Développement
 
 Pour contribuer au développement de ce module :
 1. Clonez le dépôt
