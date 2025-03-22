@@ -298,8 +298,29 @@ const emailArchiveCategory = async (category) => {
   }
 };
 
+// Fonction pour traiter directement les commandes sans demander confirmation
+const processEmailCommand = async (command, args) => {
+  switch (command) {
+    case 'check_email':
+      return await checkEmail();
+    case 'email_categorize':
+      return await emailCategorize();
+    case 'email_action':
+      return await emailAction();
+    case 'email_archive':
+      return await emailArchive(args);
+    case 'email_archive_all':
+      return await emailArchiveAll();
+    case 'email_archive_category':
+      return await emailArchiveCategory(args);
+    default:
+      return `❌ Commande non reconnue: ${command}. Les commandes disponibles sont: check_email, email_categorize, email_action, email_archive [ID], email_archive_all, email_archive_category [CATEGORIE]`;
+  }
+};
+
 // Exporter les fonctions pour les déclencheurs
 module.exports = {
+  processEmailCommand, // Nouvelle fonction principale pour traiter les commandes
   checkEmail,
   emailCategorize,
   emailAction,
